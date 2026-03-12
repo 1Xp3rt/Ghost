@@ -510,16 +510,30 @@ function minimizeApp() { ipcRenderer.send('minimize-app'); }
 function esc(s)        { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── Lock / unlock ──────────────────────────────────────────────────────────
+// When locked, forward:true passes clicks to the app below.
+// mousemove tracks if cursor is over the titlebar — if so, temporarily
+// re-enable mouse events so the lock button stays clickable.
+const _titlebar = document.querySelector('.titlebar');
+
+window.addEventListener('mousemove', (e) => {
+  if (!_locked) return;
+  const tb = _titlebar.getBoundingClientRect();
+  const over = e.clientX >= tb.left && e.clientX <= tb.right
+            && e.clientY >= tb.top  && e.clientY <= tb.bottom;
+  ipcRenderer.send('set-ignore-mouse', !over);
+});
+
 function toggleLock() {
   _locked = !_locked;
-  ipcRenderer.send('set-ignore-mouse', _locked);
   const btn = document.getElementById('lockBtn');
   if (_locked) {
+    ipcRenderer.send('set-ignore-mouse', true);
     btn.textContent = '🔒';
-    btn.title = 'Locked — clicks pass through. Click to unlock.';
+    btn.title = 'Locked — clicks pass through. Hover titlebar to unlock.';
     btn.classList.add('locked');
     setStatus('Window locked — interacting through', 'warn');
   } else {
+    ipcRenderer.send('set-ignore-mouse', false);
     btn.textContent = '🔓';
     btn.title = 'Lock window — clicks pass through to app underneath';
     btn.classList.remove('locked');
